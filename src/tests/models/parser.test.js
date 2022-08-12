@@ -1,8 +1,10 @@
 import {
+  getSelfClosedTagName,
   getValidEntryPositions,
   tagCleaner,
   validEntryPosition,
   validEntryTags,
+  verifyValidSelfClosedFormat,
 } from "../../models/parser";
 
 describe("Tests on critic parser functions", () => {
@@ -31,5 +33,14 @@ describe("Tests on critic parser functions", () => {
     const dataTest = "><asdsad>";
     const dataClean = "<asdsad>";
     expect(getValidEntryPositions(dataTest)).toBe(dataClean);
+  });
+  test("Test verify valid self closed format", () => {
+    const dataTest = "img/";
+    expect(verifyValidSelfClosedFormat).toBeTruthy();
+  });
+  test("Test get self closed tag name", () => {
+    const dataTest = "img/";
+    const dataClean = "img";
+    expect(getSelfClosedTagName(dataTest)).toBe(dataClean);
   });
 });

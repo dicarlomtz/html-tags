@@ -1,5 +1,6 @@
 import { writeToJSONFile } from "./writer.js";
 import htmlTags from "html-tags";
+import voidHtmlTags from "html-tags/void.js";
 
 /**
  * It takes a string, finds the first and last index of the tag, and returns the tag
@@ -42,12 +43,29 @@ const assembler = (entry, tags) => {
 };
 
 const saveTag = (tagName, tags) => {
+  if (verifyValidSelfClosedFormat(tagName) && isSelfClosedTag(tagName))
+    tagName = getSelfClosedTagName(tagName);
   if (!isRepeatedTag(tagName, tags)) showValidTag(tagName);
   isRepeatedTag(tagName, tags) ? tags[tagName]++ : (tags[tagName] = 1);
 };
 
+export const getSelfClosedTagName = (tagName) => {
+  return tagName.substring(0, tagName.length - 1);
+};
+
 const verifyValidTag = (tagName) => {
+  if (verifyValidSelfClosedFormat(tagName)) return isSelfClosedTag(tagName);
   return htmlTags.includes(tagName);
+};
+
+const isSelfClosedTag = (tagName) => {
+  return voidHtmlTags.includes(tagName.substring(0, tagName.length - 1));
+};
+
+export const verifyValidSelfClosedFormat = (tagName) => {
+  return tagName.includes("/")
+    ? tagName.indexOf("/") === tagName.length - 1
+    : false;
 };
 
 const isRepeatedTag = (tagName, tags) => {
