@@ -1,6 +1,7 @@
 import { writeToJSONFile } from "./writer.js";
-import htmlTags from "html-tags";
-import voidHtmlTags from "html-tags/void.js";
+
+const OPEN_TAG = "<";
+const CLOSE_TAG = ">";
 
 /**
  * It takes a string, finds the first and last index of the tag, and returns the tag
@@ -24,100 +25,105 @@ const parseTags = (data) => {
 };
 
 /**
- * The function assembles a valid entry by checking if the entry has valid tags, and if it does, it
- * gets the valid entry positions, gets the tag name, gets the corresponding entry, and if the tag is
- * valid, it saves the tag
- * @param entry - the current entry being processed
- * @param tags - an object that will hold the tags that are found in the entry
+ * It takes a string and an array of tags, and it finds all the tags in the string and adds them to the
+ * array
+ * @param entry - the string to be processed
+ * @param tags - an object that will be populated with the tags found in the entry
  */
 const assembler = (entry, tags) => {
-  while (validEntryTags(entry) && validEntryPosition(entry)) {
-    entry = getValidEntryPositions(entry);
-    if (validEntryTags) {
-      const [startIndex, endIndex] = getTagIndices(entry);
-      const tagName = getTagName(entry, startIndex, endIndex);
-      entry = getCorrespondingEntry(tagName, entry, startIndex);
-      if (verifyValidTag(tagName)) saveTag(tagName, tags);
+  const tagCandidates = getTagCandidates(entry);
+  tagCandidates.forEach((tagCandidate) => {
+    const tagCloseIndex = getTagCloseIndex(tagCandidate);
+    if (tagCloseIndex >= 0) processTag(tagCandidate, tagCloseIndex, tags);
+  });
+};
+
+const processTag = (tagCandidate, tagCloseIndex, tags) => {
+  const tag = getTag(tagCandidate, tagCloseIndex);
+  if (tag.length > 0) {
+    const tagName = getTagName(tag);
+    if (verifyValidTagName(tagName)) {
+      showTag(tagName, tags);
+      saveTag(tagName, tags);
     }
   }
 };
 
-const saveTag = (tagName, tags) => {
-  if (verifyValidSelfClosedFormat(tagName) && isSelfClosedTag(tagName))
-    tagName = getSelfClosedTagName(tagName);
-  if (!isRepeatedTag(tagName, tags)) showValidTag(tagName);
-  isRepeatedTag(tagName, tags) ? tags[tagName]++ : (tags[tagName] = 1);
+const getTagCandidates = (entry) => {
+  return entry.split(OPEN_TAG);
 };
 
-export const getSelfClosedTagName = (tagName) => {
-  return tagName.substring(0, tagName.length - 1);
+const getTagCloseIndex = (tagCandidate) => {
+  return tagCandidate.indexOf(CLOSE_TAG);
 };
 
-const verifyValidTag = (tagName) => {
-  if (verifyValidSelfClosedFormat(tagName)) return isSelfClosedTag(tagName);
-  return htmlTags.includes(tagName);
+const getTag = (tagCandidate, tagCloseIndex) => {
+  return tagCandidate.substring(0, tagCloseIndex).toLowerCase().trim();
 };
 
-const isSelfClosedTag = (tagName) => {
-  return voidHtmlTags.includes(tagName.substring(0, tagName.length - 1));
+/**
+ * If the tag is self-closed, return the tag name without the slash, otherwise return the tag name up
+ * to the first space.
+ * @param tag - The tag to get the name from.
+ * @returns The tag name of the tag passed in.
+ */
+const getTagName = (tag) => {
+  const spaceIndex = tag.indexOf(" ");
+
+  if (spaceIndex <= -1) return tag;
+
+  const tagName = tag.substring(0, spaceIndex);
+  return isSelfClosed(tagName)
+    ? tagName.substring(0, tagName.length - 1)
+    : tagName;
 };
 
-export const verifyValidSelfClosedFormat = (tagName) => {
-  return tagName.includes("/")
-    ? tagName.indexOf("/") === tagName.length - 1
-    : false;
+const isSelfClosed = (tagName) => {
+  const lastPosition = tagName.length - 1;
+  return tagName[lastPosition] === "/";
 };
+
+// Save and show tags
 
 const isRepeatedTag = (tagName, tags) => {
   return tags.hasOwnProperty(tagName);
 };
 
-const showValidTag = (tagName) => {
-  console.log("<" + tagName + ">");
+const saveTag = (tagName, tags) => {
+  isRepeatedTag(tagName, tags) ? tags[tagName]++ : (tags[tagName] = 1);
 };
 
-export const validEntryTags = (entry) => {
-  return entry.includes("<") && entry.includes(">");
+const showTag = (tagName, tags) => {
+  if (!isRepeatedTag(tagName, tags)) console.log("<" + tagName + ">");
 };
 
-export const validEntryPosition = (entry) => {
-  return entry.indexOf("<") < entry.lastIndexOf(">");
+// Verify valid tags
+
+const verifyValidTagName = (tagName) => {
+  return isFirstCharInvalid(tagName) ||
+    containsInvalidChars(tagName) ||
+    tagName.length <= 0
+    ? false
+    : true;
 };
 
-/**
- * It takes a string and returns a substring of the string that contains the first valid entry tag
- * @param entry - The string to be parsed
- * @returns the entry if the startIndex is greater than the endIndex and the entry is valid.
- */
-export const getValidEntryPositions = (entry) => {
-  const [startIndex, endIndex] = getTagIndices(entry);
-  if (startIndex > endIndex && validEntryTags(entry)) {
-    return getValidEntryPositions(entry.substring(startIndex, entry.length));
-  }
-  return entry;
+const isFirstCharInvalid = (tagName) => {
+  return tagName.charCodeAt(0) >= 32 && tagName.charCodeAt(0) <= 64;
 };
 
-const getTagIndices = (entry) => {
-  const startIndex = entry.indexOf("<");
-  const endIndex = entry.indexOf(">");
-  return [startIndex, endIndex];
-};
+const containsInvalidChars = (tagName) => {
+  let flag = false;
+  [...tagName].forEach((element) => {
+    if (
+      (element.charCodeAt(0) >= 91 && element.charCodeAt(0) <= 96) ||
+      (element.charCodeAt(0) >= 32 && element.charCodeAt(0) <= 44) ||
+      (element.charCodeAt(0) >= 46 && element.charCodeAt(0) <= 47) ||
+      (element.charCodeAt(0) >= 58 && element.charCodeAt(0) <= 64) ||
+      element.charCodeAt(0) >= 123
+    ) {
+      flag = true;
+    }
+  });
 
-const getTagName = (entry, startIndex, endIndex) => {
-  if (startIndex > endIndex) return "";
-  const tagFound = entry.substring(startIndex, endIndex + 1);
-  const tagName = tagFound.substring(
-    tagFound.indexOf("<") + 1,
-    tagFound.indexOf(">")
-  );
-
-  return tagName;
-};
-
-const getCorrespondingEntry = (tagName, entry, startIndex) => {
-  const invalidTag = tagName.includes("<");
-
-  if (invalidTag) return entry.substring(startIndex + 1, entry.length);
-
-  return entry.substring(entry.indexOf(">") + 1, entry.length);
+  return flag;
 };
